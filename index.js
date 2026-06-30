@@ -1,64 +1,32 @@
 // ============================================
-// 🎨 BRONX TEXT TO IMAGE API
-// Render Ready – HD Quality PNG Output
+// 🎨 BRONX TEXT TO IMAGE API – SVG BASED
+// No Native Dependencies – Render Ready
 // ============================================
 const express = require('express');
-const { createCanvas, registerFont } = require('canvas');
 const app = express();
 
-// ============ CONFIG ============
 const PORT = process.env.PORT || 3000;
 const CREDIT = "BRONX_ULTRA";
 
-// ============ TEXT TO IMAGE GENERATOR ============
-function generateImage(text, options = {}) {
+// ============ TEXT TO SVG ============
+function generateSVG(text, options = {}) {
     const {
         width = 1200,
         height = 630,
-        bgColor = '#0a0a1a',
         textColor = '#ffffff',
         fontSize = 48,
-        fontFamily = 'sans-serif',
         padding = 40
     } = options;
 
-    // Create canvas
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
-
-    // Background gradient
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, '#1a1a3e');
-    gradient.addColorStop(0.5, '#0d0d2b');
-    gradient.addColorStop(1, '#1a0a2e');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    // Decorative dots
-    for (let i = 0; i < 50; i++) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.05})`;
-        ctx.beginPath();
-        ctx.arc(Math.random() * width, Math.random() * height, Math.random() * 3, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Text settings
-    ctx.fillStyle = textColor;
-    ctx.font = `bold ${fontSize}px "${fontFamily}", Arial, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Word wrap
+    // Word wrap calculation
     const words = text.split(' ');
     const lines = [];
     let currentLine = '';
-    const maxWidth = width - padding * 2;
-
+    const maxCharsPerLine = Math.floor((width - padding * 2) / (fontSize * 0.55));
+    
     words.forEach(word => {
         const testLine = currentLine ? currentLine + ' ' + word : word;
-        const metrics = ctx.measureText(testLine);
-        
-        if (metrics.width > maxWidth && currentLine) {
+        if (testLine.length > maxCharsPerLine && currentLine) {
             lines.push(currentLine);
             currentLine = word;
         } else {
@@ -67,27 +35,85 @@ function generateImage(text, options = {}) {
     });
     lines.push(currentLine);
 
-    // Draw text
     const lineHeight = fontSize * 1.4;
     const startY = height / 2 - (lines.length - 1) * lineHeight / 2;
 
-    lines.forEach((line, i) => {
-        // Shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.fillText(line, width / 2 + 2, startY + i * lineHeight + 2);
-        
-        // Main text
-        ctx.fillStyle = textColor;
-        ctx.fillText(line, width / 2, startY + i * lineHeight);
-    });
+    // Generate text elements
+    const textElements = lines.map((line, i) => {
+        const y = startY + i * lineHeight;
+        return `
+            <!-- Shadow -->
+            <text x="${width/2 + 2}" y="${y + 2}" 
+                  fill="rgba(0,0,0,0.3)" 
+                  font-size="${fontSize}" 
+                  font-weight="bold" 
+                  font-family="Arial, sans-serif" 
+                  text-anchor="middle" 
+                  dominant-baseline="middle">${line}</text>
+            <!-- Main Text -->
+            <text x="${width/2}" y="${y}" 
+                  fill="${textColor}" 
+                  font-size="${fontSize}" 
+                  font-weight="bold" 
+                  font-family="Arial, sans-serif" 
+                  text-anchor="middle" 
+                  dominant-baseline="middle">${line}</text>`;
+    }).join('\n');
 
-    // Bottom watermark
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'right';
-    ctx.fillText('BRONX ULTRA API', width - 20, height - 20);
+    // Generate random dots
+    const dots = [];
+    for (let i = 0; i < 60; i++) {
+        const cx = Math.random() * width;
+        const cy = Math.random() * height;
+        const r = Math.random() * 3;
+        const opacity = Math.random() * 0.08;
+        dots.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="rgba(255,255,255,${opacity})"/>`);
+    }
 
-    return canvas;
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <defs>
+        <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#1a1a3e;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#0d0d2b;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1a0a2e;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#0096ff;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#8b00ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#ff0080;stop-opacity:1" />
+        </linearGradient>
+        <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+    </defs>
+    
+    <!-- Background -->
+    <rect width="${width}" height="${height}" fill="url(#bgGradient)"/>
+    
+    <!-- Decorative Dots -->
+    ${dots.join('\n')}
+    
+    <!-- Border Glow -->
+    <rect x="2" y="2" width="${width-4}" height="${height-4}" 
+          fill="none" stroke="rgba(139,0,255,0.15)" stroke-width="2" rx="12"/>
+    
+    <!-- Text -->
+    <g filter="url(#glow)">
+        ${textElements}
+    </g>
+    
+    <!-- Watermark -->
+    <text x="${width - 20}" y="${height - 20}" 
+          fill="rgba(255,255,255,0.12)" 
+          font-size="12" 
+          font-family="Arial" 
+          text-anchor="end">BRONX ULTRA API</text>
+</svg>`;
 }
 
 // ============ CORS ============
@@ -104,172 +130,146 @@ app.get('/', (req, res) => {
 <html lang="en">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>🎨 BRONX TEXT TO IMAGE API</title>
+    <title>🎨 BRONX TEXT TO IMAGE</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         body{background:#000a14;color:#d0d8f0;font-family:'Rajdhani',sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
-        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(139,0,255,.06),transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(0,150,255,.04),transparent 60%);pointer-events:none;z-index:0}
-        .card{background:rgba(5,15,35,.95);border:1px solid rgba(139,0,255,.15);border-radius:20px;padding:40px;max-width:700px;width:100%;text-align:center;position:relative;z-index:1;backdrop-filter:blur(20px)}
+        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(139,0,255,.06),transparent 60%);pointer-events:none;z-index:0}
+        .card{background:rgba(5,15,35,.95);border:1px solid rgba(139,0,255,.15);border-radius:20px;padding:40px;max-width:750px;width:100%;text-align:center;position:relative;z-index:1;backdrop-filter:blur(20px)}
         h1{font-family:'Orbitron',sans-serif;font-size:28px;background:linear-gradient(90deg,#8b00ff,#0096ff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
         .badge{display:inline-block;background:rgba(139,0,255,.08);color:#8b00ff;padding:4px 14px;border-radius:20px;font-size:10px;border:1px solid rgba(139,0,255,.15);margin:4px}
         .section{background:rgba(0,0,0,.5);border:1px solid rgba(139,0,255,.1);border-radius:12px;padding:16px;margin:14px 0;text-align:left}
-        code{color:#00ff88;font-family:monospace;font-size:11px;word-break:break-all;display:block;margin:6px 0;background:rgba(0,0,0,.3);padding:8px;border-radius:6px}
-        input,textarea,select{width:100%;padding:10px;background:rgba(0,0,0,.5);border:1px solid rgba(139,0,255,.1);border-radius:10px;color:#fff;font-size:13px;outline:none;margin:6px 0;font-family:'Rajdhani',sans-serif;resize:vertical}
-        input:focus,textarea:focus,select:focus{border-color:#8b00ff;box-shadow:0 0 15px rgba(139,0,255,.1)}
+        code{color:#00ff88;font-family:monospace;font-size:10px;word-break:break-all;display:block;margin:6px 0;background:rgba(0,0,0,.3);padding:8px;border-radius:6px}
+        input,textarea{width:100%;padding:10px;background:rgba(0,0,0,.5);border:1px solid rgba(139,0,255,.1);border-radius:10px;color:#fff;font-size:13px;outline:none;margin:6px 0;font-family:'Rajdhani',sans-serif;resize:vertical}
+        input:focus,textarea:focus{border-color:#8b00ff;box-shadow:0 0 15px rgba(139,0,255,.1)}
         button{width:100%;padding:12px;background:linear-gradient(135deg,#8b00ff,#0096ff);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Orbitron',sans-serif;margin:6px 0;transition:.3s}
         button:hover{transform:scale(1.02);box-shadow:0 0 25px rgba(139,0,255,.25)}
         button.green{background:linear-gradient(135deg,#00c853,#009624)}
-        .preview{max-width:100%;border-radius:12px;margin-top:10px;border:2px solid rgba(139,0,255,.2);display:none}
-        .preview.show{display:block}
-        .color-row{display:flex;gap:8px;flex-wrap:wrap}
-        .color-btn{width:35px;height:35px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.3s}
-        .color-btn:hover,.color-btn.active{border-color:#fff;transform:scale(1.1)}
+        button.orange{background:linear-gradient(135deg,#ff6d00,#ff9100)}
+        .preview-box{background:rgba(0,0,0,.3);border-radius:12px;overflow:hidden;margin:10px 0}
+        .preview-box img{width:100%;height:auto;display:block}
+        .result{display:none;margin-top:10px}
+        .result.show{display:block}
+        .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     </style>
 </head>
 <body>
 <div class="card">
-    <h1>🎨 TEXT TO IMAGE API</h1>
-    <p style="color:#667;font-size:12px">HD Quality • Custom Colors • Render Ready</p>
+    <h1>🎨 BRONX TEXT TO IMAGE</h1>
+    <p style="color:#667;font-size:12px">SVG Based • HD Quality • Glow Effect • Render Ready</p>
     <div style="margin:10px 0">
-        <span class="badge">🎨 HD PNG</span>
+        <span class="badge">🎨 SVG</span>
         <span class="badge">🌈 Gradient</span>
+        <span class="badge">✨ Glow</span>
         <span class="badge">⚡ Fast</span>
     </div>
 
     <div class="section">
-        <p style="color:#8b00ff;font-weight:700">📝 QUICK GENERATOR</p>
-        <textarea id="textInput" rows="3" placeholder="Type your text here..."></textarea>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <input type="number" id="widthInput" placeholder="Width (px)" value="1200">
-            <input type="number" id="heightInput" placeholder="Height (px)" value="630">
+        <p style="color:#8b00ff;font-weight:700">📝 TEXT TO IMAGE GENERATOR</p>
+        <textarea id="textInput" rows="3" placeholder="Type your text here...">BRONX ULTRA</textarea>
+        <div class="grid2">
+            <input type="number" id="widthInput" placeholder="Width" value="1200">
+            <input type="number" id="heightInput" placeholder="Height" value="630">
         </div>
-        <input type="text" id="colorInput" placeholder="Text Color (e.g., #ffffff)" value="#ffffff">
-        <button class="green" onclick="generatePreview()">🎨 GENERATE PREVIEW</button>
+        <input type="text" id="colorInput" placeholder="Text Color (hex without #)" value="ffffff">
+        <button class="green" onclick="generate()">🎨 GENERATE IMAGE</button>
     </div>
 
-    <img id="previewImg" class="preview" alt="Preview">
+    <div class="result" id="result">
+        <div class="preview-box" id="imageBox"></div>
+        <button class="orange" onclick="download()">📥 DOWNLOAD PNG</button>
+    </div>
 
     <div class="section">
-        <p style="color:#00ff88;font-weight:700">🔗 API ENDPOINT</p>
-        <code>GET /generate?text=YOUR_TEXT&width=1200&height=630&color=#fff</code>
-        <p style="color:#ffb400;font-size:10px">Direct URL → Image opens in browser!</p>
+        <p style="color:#00ff88;font-weight:700">🔗 API ENDPOINTS</p>
+        <code>GET /generate?text=Hello+World&width=1200&height=630&color=fff</code>
+        <code>GET /api/generate?text=Hello&width=800 (JSON Base64)</code>
     </div>
 
     <p style="color:#667;font-size:10px;margin-top:14px">Created by BRONX_ULTRA</p>
 </div>
-
 <script>
-function generatePreview(){
+var currentSVG = '';
+
+function generate(){
     var text = document.getElementById('textInput').value.trim();
     var width = document.getElementById('widthInput').value || 1200;
     var height = document.getElementById('heightInput').value || 630;
     var color = document.getElementById('colorInput').value.replace('#','') || 'ffffff';
     
-    if(!text) return alert('Enter some text!');
+    if(!text) return alert('Enter text!');
     
     var url = '/generate?text=' + encodeURIComponent(text) + '&width=' + width + '&height=' + height + '&color=' + color;
-    var img = document.getElementById('previewImg');
-    img.src = url;
-    img.classList.add('show');
+    
+    document.getElementById('imageBox').innerHTML = '<img src="' + url + '" alt="Generated Image" style="width:100%">';
+    document.getElementById('result').classList.add('show');
+    currentSVG = url;
+}
+
+function download(){
+    if(!currentSVG) return;
+    var a = document.createElement('a');
+    a.href = currentSVG;
+    a.download = 'bronx-image-' + Date.now() + '.svg';
+    a.click();
 }
 </script>
 </body></html>`);
 });
 
-// ============ TEXT TO IMAGE API ============
+// ============ GENERATE SVG IMAGE ============
 app.get('/generate', (req, res) => {
-    const {
-        text,
-        width,
-        height,
-        color,
-        bg,
-        size
-    } = req.query;
+    const { text, width, height, color, size } = req.query;
 
     if (!text) {
-        return res.status(400).json({
-            error: "Missing 'text' parameter",
-            usage: "/generate?text=Hello World&width=1200&height=630&color=#fff"
-        });
+        return res.status(400).send('Missing text parameter. Use: /generate?text=Hello+World');
     }
 
-    try {
-        const options = {
-            width: parseInt(width) || 1200,
-            height: parseInt(height) || 630,
-            textColor: color ? '#' + color.replace('#', '') : '#ffffff',
-            bgColor: bg ? '#' + bg.replace('#', '') : '#0a0a1a',
-            fontSize: parseInt(size) || 48,
-            padding: 40
-        };
+    const options = {
+        width: parseInt(width) || 1200,
+        height: parseInt(height) || 630,
+        textColor: '#' + (color || 'ffffff').replace('#', ''),
+        fontSize: parseInt(size) || 48,
+        padding: 40
+    };
 
-        // Generate image
-        const canvas = generateImage(text, options);
-        const buffer = canvas.toBuffer('image/png');
+    const svg = generateSVG(text, options);
 
-        // Send as PNG
-        res.setHeader('Content-Type', 'image/png');
-        res.setHeader('Content-Disposition', `inline; filename="bronx-text-${Date.now()}.png"`);
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        res.send(buffer);
-
-    } catch (error) {
-        console.error('Image generation error:', error);
-        res.status(500).json({
-            error: "Image generation failed",
-            message: error.message
-        });
-    }
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(svg);
 });
 
-// ============ JSON API (Returns Base64) ============
+// ============ JSON API (Base64) ============
 app.get('/api/generate', (req, res) => {
-    const {
-        text,
-        width,
-        height,
-        color,
-        size
-    } = req.query;
+    const { text, width, height, color, size } = req.query;
 
     if (!text) {
-        return res.json({
-            error: "Missing 'text' parameter",
-            usage: "/api/generate?text=Hello&width=1200&height=630"
-        });
+        return res.json({ error: "Missing text parameter" });
     }
 
-    try {
-        const options = {
-            width: parseInt(width) || 1200,
-            height: parseInt(height) || 630,
-            textColor: color ? '#' + color.replace('#', '') : '#ffffff',
-            fontSize: parseInt(size) || 48,
-            padding: 40
-        };
+    const options = {
+        width: parseInt(width) || 1200,
+        height: parseInt(height) || 630,
+        textColor: '#' + (color || 'ffffff').replace('#', ''),
+        fontSize: parseInt(size) || 48,
+        padding: 40
+    };
 
-        const canvas = generateImage(text, options);
-        const buffer = canvas.toBuffer('image/png');
-        const base64 = buffer.toString('base64');
+    const svg = generateSVG(text, options);
+    const base64 = Buffer.from(svg).toString('base64');
 
-        res.json({
-            success: true,
-            text: text,
-            width: options.width,
-            height: options.height,
-            format: 'png',
-            image_base64: `data:image/png;base64,${base64}`,
-            credit: CREDIT
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            error: "Generation failed",
-            message: error.message
-        });
-    }
+    res.json({
+        success: true,
+        text: text,
+        width: options.width,
+        height: options.height,
+        format: 'svg',
+        image_base64: `data:image/svg+xml;base64,${base64}`,
+        svg_raw: svg,
+        credit: CREDIT
+    });
 });
 
 // ============ TEST ============
@@ -278,7 +278,7 @@ app.get('/test', (req, res) => {
         status: "✅ TEXT TO IMAGE API ONLINE",
         endpoints: {
             generate: "/generate?text=Hello+World&width=1200&height=630",
-            api_json: "/api/generate?text=Hello&width=800&height=400"
+            api_json: "/api/generate?text=Hello&width=800"
         },
         credit: CREDIT
     });
@@ -286,19 +286,11 @@ app.get('/test', (req, res) => {
 
 // ============ 404 ============
 app.use((req, res) => {
-    res.status(404).json({
-        error: "Not found",
-        home: "/",
-        test: "/test",
-        generate: "/generate?text=Your+Text+Here"
-    });
+    res.status(404).json({ error: "Not found", home: "/", generate: "/generate?text=Your+Text" });
 });
 
 // ============ START ============
 app.listen(PORT, '0.0.0.0', () => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🎨 BRONX TEXT TO IMAGE API');
-    console.log(`🚀 Running on port ${PORT}`);
+    console.log(`🎨 BRONX TEXT TO IMAGE API on port ${PORT}`);
     console.log(`📱 Test: http://localhost:${PORT}/generate?text=Hello+World`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 });
