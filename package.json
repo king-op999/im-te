@@ -1,0 +1,13 @@
+{
+  "name": "text-to-image-api",
+  "version": "1.0.0",
+  "description": "BRONX TEXT TO HD IMAGE API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "canvas": "^2.11.2"
+  }
+}
